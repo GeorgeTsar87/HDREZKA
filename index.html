@@ -1,1 +1,517 @@
-123
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Гильотинный раскрой | проф. инструмент</title>
+    <style>
+        *{margin:0;padding:0;box-sizing:border-box;}
+        body{font-family:'Inter',system-ui,monospace;background:var(--bg);color:var(--text);transition:background 0.2s;}
+        :root{--bg:#eef2f5;--panel:#fff;--border:#bdc4cc;--text:#1a2632;--accent:#1f5e7e;--accent-hover:#0f445f;--secondary:#e3e9ef;--waste:#e2e8f0;}
+        .dark{--bg:#1a1e24;--panel:#252a33;--border:#3a4450;--text:#eef2f5;--accent:#3a7ca5;--accent-hover:#2a6085;--secondary:#2f3b44;--waste:#2c3540;}
+        .app-container{max-width:1600px;margin:0 auto;padding:20px;}
+        .header{display:flex;justify-content:space-between;align-items:baseline;border-bottom:2px solid var(--border);padding-bottom:10px;margin-bottom:20px;flex-wrap:wrap;}
+        .header h1{font-size:24px;font-weight:600;}
+        .theme-toggle{background:var(--secondary);border:1px solid var(--border);padding:6px 12px;cursor:pointer;font-size:13px;}
+        .dashboard{display:flex;gap:20px;flex-wrap:wrap;}
+        .panel{flex:1.2;min-width:300px;background:var(--panel);border:1px solid var(--border);padding:18px;}
+        .canvas-panel{flex:2;min-width:500px;background:var(--panel);border:1px solid var(--border);padding:18px;display:flex;flex-direction:column;}
+        .sheet-input{background:var(--secondary);padding:12px;margin-bottom:20px;border:1px solid var(--border);}
+        .input-row{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;}
+        .input-field{flex:1;}
+        .input-field label{font-size:11px;font-weight:600;display:block;margin-bottom:4px;}
+        .input-field input{width:100%;padding:8px;border:1px solid var(--border);background:var(--panel);color:var(--text);font-family:monospace;}
+        .strategy-box{flex:0.8;min-width:160px;}
+        .strategy-select{width:100%;padding:8px;background:var(--panel);border:1px solid var(--border);color:var(--text);}
+        .checkbox-row{display:flex;align-items:center;gap:8px;margin-top:10px;}
+        .parts-header{display:flex;justify-content:space-between;margin:15px 0 8px;}
+        .btn-add{background:var(--accent);border:none;padding:4px 12px;color:white;cursor:pointer;}
+        .table-wrapper{overflow-x:auto;border:1px solid var(--border);}
+        .parts-table{width:100%;border-collapse:collapse;font-size:12px;}
+        .parts-table th,.parts-table td{padding:6px;border-bottom:1px solid var(--border);text-align:center;}
+        .parts-table input{width:70px;padding:4px;text-align:center;background:var(--panel);border:1px solid var(--border);color:var(--text);}
+        .btn-remove{background:none;border:none;color:#b91c1c;font-size:18px;cursor:pointer;}
+        .action-buttons{display:flex;gap:10px;margin:20px 0 15px;flex-wrap:wrap;}
+        .btn-primary{background:var(--accent);color:white;border:none;padding:8px 16px;cursor:pointer;}
+        .btn-secondary{background:var(--secondary);border:1px solid var(--border);padding:8px 16px;cursor:pointer;}
+        .stats{background:var(--secondary);padding:12px;border:1px solid var(--border);font-size:12px;font-family:monospace;}
+        .canvas-container{position:relative;background:#fefefe;border:1px solid var(--border);margin-bottom:10px;overflow:hidden;touch-action:none;}
+        canvas{display:block;background:#fff;cursor:grab;width:100%;height:auto;border:1px solid #a0b6c8;}
+        .canvas-actions{display:flex;justify-content:space-between;gap:10px;margin-top:8px;flex-wrap:wrap;}
+        .icon-btn{background:var(--secondary);border:1px solid var(--border);padding:6px 12px;cursor:pointer;font-size:12px;}
+        .sheet-nav{display:flex;justify-content:center;gap:15px;margin:12px 0;align-items:center;}
+        .tooltip{position:fixed;background:#1e2a36;color:#fff;padding:4px 8px;font-size:11px;border-radius:0;pointer-events:none;z-index:1000;font-family:monospace;white-space:nowrap;}
+        .waste-block{margin-top:10px;font-size:11px;background:var(--secondary);padding:6px;text-align:center;}
+        .drag-info{font-size:10px;text-align:center;margin-top:6px;}
+        @media (max-width:800px){.dashboard{flex-direction:column;}}
+    </style>
+</head>
+<body>
+<div class="app-container">
+    <div class="header">
+        <h1>ГИЛЬОТИННЫЙ РАСКРОЙ | нож 3000 мм</h1>
+        <button class="theme-toggle" id="themeToggle">🌙 Тёмная тема</button>
+    </div>
+    <div class="dashboard">
+        <div class="panel">
+            <div class="sheet-input">
+                <div class="input-row">
+                    <div class="input-field"><label>ШИРИНА (мм) ≤3000</label><input type="number" id="sheetW" value="2000" step="10" max="3000"></div>
+                    <div class="input-field"><label>ВЫСОТА (мм)</label><input type="number" id="sheetH" value="1000" step="10"></div>
+                    <div class="strategy-box"><label>СТРАТЕГИЯ</label><select id="strategy" class="strategy-select"><option value="width">📏 Приоритет ширины</option><option value="balance">⚖️ Баланс</option><option value="area">🎯 Мин. отхода</option></select></div>
+                </div>
+                <div class="checkbox-row"><input type="checkbox" id="allowRotate" checked> <label>Разрешить поворот (90°) если улучшает заполнение</label></div>
+            </div>
+            <div class="parts-header"><h3>ДЕТАЛИ</h3><button class="btn-add" id="addPart">+</button></div>
+            <div class="table-wrapper"><table class="parts-table" id="partsTable"><thead><tr><th>Шир.</th><th>Выс.</th><th>Кол-во</th><th></th></tr></thead><tbody id="partsBody"></tbody></table></div>
+            <div class="action-buttons"><button class="btn-primary" id="calcBtn">▸ РАССЧИТАТЬ</button><button class="btn-secondary" id="resetBtn">↺ СБРОС</button><button class="btn-secondary" id="alignBtn">⬚ ВЫРОВНЯТЬ ПО СЕТКЕ</button></div>
+            <div class="stats" id="statsPanel"></div>
+        </div>
+        <div class="canvas-panel">
+            <div class="canvas-container" id="canvasContainer"><canvas id="cutCanvas" width="800" height="500"></canvas></div>
+            <div class="canvas-actions"><button class="icon-btn" id="zoomOutBtn">🔍–</button><button class="icon-btn" id="zoomResetBtn">⟳ Сброс вида</button><button class="icon-btn" id="zoomInBtn">🔍+</button><button class="icon-btn" id="savePngBtn">💾 PNG</button><button class="icon-btn" id="printBtn">🖨️ Печать</button></div>
+            <div class="sheet-nav"><button class="icon-btn" id="prevSheetBtn">◀ Пред. лист</button><span id="sheetCounter">Лист 1 / 1</span><button class="icon-btn" id="nextSheetBtn">След. лист ▶</button></div>
+            <div class="drag-info">✋ Перетаскивание деталей | 🖱️ Колесо — зум | Зажмите фон для панорамирования</div>
+            <div class="waste-block">█ Светло-серая зона = цельный остаток (отход)</div>
+        </div>
+    </div>
+</div>
+<div id="tooltip" class="tooltip" style="display:none"></div>
+<script>
+    // ----- компактная реализация -----
+    let parts = [{w:500,h:300,q:4},{w:400,h:250,q:3},{w:600,h:200,q:2},{w:300,h:300,q:2}];
+    let sheets = [];           // массив листов: каждый {placed, freeAreas}
+    let curSheetIdx = 0;
+    let sheetW=2000, sheetH=1000;
+    let strategy="width", allowRotate=true;
+    // параметры камеры (зум/пан)
+    let scale=1, offsetX=0, offsetY=0;
+    let isPanning=false, panStart={x:0,y:0};
+    let canvas, ctx, container;
+    // tooltip
+    let tooltipDiv, hoveredPart=null;
+    
+    // ---- DOM ----
+    const partsBody=document.getElementById('partsBody');
+    const sheetWInp=document.getElementById('sheetW');
+    const sheetHInp=document.getElementById('sheetH');
+    const strategySel=document.getElementById('strategy');
+    const allowRotateChk=document.getElementById('allowRotate');
+    const calcBtn=document.getElementById('calcBtn');
+    const resetBtn=document.getElementById('resetBtn');
+    const alignBtn=document.getElementById('alignBtn');
+    const addPartBtn=document.getElementById('addPart');
+    const prevSheet=document.getElementById('prevSheetBtn');
+    const nextSheet=document.getElementById('nextSheetBtn');
+    const sheetCounterSpan=document.getElementById('sheetCounter');
+    const savePng=document.getElementById('savePngBtn');
+    const printBtnEl=document.getElementById('printBtn');
+    const themeToggle=document.getElementById('themeToggle');
+    const zoomIn=document.getElementById('zoomInBtn');
+    const zoomOut=document.getElementById('zoomOutBtn');
+    const zoomReset=document.getElementById('zoomResetBtn');
+    
+    function renderPartsTable(){
+        partsBody.innerHTML='';
+        parts.forEach((p,i)=>{
+            const tr=document.createElement('tr');
+            tr.innerHTML=`<td><input type="number" class="pw" value="${p.w}" step="10"></td><td><input type="number" class="ph" value="${p.h}" step="10"></td><td><input type="number" class="pq" value="${p.q}" step="1" min="0"></td><td><button class="btn-remove" data-idx="${i}">✕</button></td>`;
+            partsBody.appendChild(tr);
+        });
+        document.querySelectorAll('.pw').forEach((inp,i)=>inp.onchange=()=>{parts[i].w=Math.max(1,parseInt(inp.value)||0); renderPartsTable();});
+        document.querySelectorAll('.ph').forEach((inp,i)=>inp.onchange=()=>{parts[i].h=Math.max(1,parseInt(inp.value)||0); renderPartsTable();});
+        document.querySelectorAll('.pq').forEach((inp,i)=>inp.onchange=()=>{parts[i].q=Math.max(0,parseInt(inp.value)||0); renderPartsTable();});
+        document.querySelectorAll('.btn-remove').forEach(btn=>btn.onclick=()=>{parts.splice(parseInt(btn.dataset.idx),1); renderPartsTable();});
+    }
+    
+    // ---- Упаковщик (гильотинный, с учетом стратегии и флага поворота) ----
+    class Packer{
+        constructor(w,h,strat,rotFlag){
+            this.free=[{x:0,y:0,w,h}];
+            this.placed=[];
+            this.strat=strat;
+            this.rotFlag=rotFlag;
+        }
+        scoreFit(fr,iw,ih,rot){
+            let w=rot?ih:iw, h=rot?iw:ih;
+            if(w>fr.w || h>fr.h) return null;
+            let leftover=(fr.w*fr.h)-(w*h);
+            if(this.strat==='width'){ let fill=w/fr.w; leftover+= (1-fill)*500; }
+            else if(this.strat==='balance'){ leftover+=Math.abs(fr.w-fr.h)*0.3; }
+            return {score:leftover,rotated:rot};
+        }
+        findBest(iw,ih){
+            let best=null,bScore=Infinity,bRot=false,bIdx=-1;
+            let rots=this.rotFlag?[0,1]:[0];
+            for(let rot of rots){
+                for(let i=0;i<this.free.length;i++){
+                    let res=this.scoreFit(this.free[i],iw,ih,rot===1);
+                    if(res && res.score<bScore){ bScore=res.score; bRot=res.rotated; bIdx=i; }
+                }
+            }
+            if(bIdx===-1) return null;
+            let ww=bRot?ih:iw, hh=bRot?iw:ih;
+            return {idx:bIdx,rotated:bRot,w:ww,h:hh};
+        }
+        packOne(iw,ih,typeId){
+            let fit=this.findBest(iw,ih);
+            if(!fit) return false;
+            let fr=this.free[fit.idx];
+            let placed={x:fr.x,y:fr.y,w:fit.w,h:fit.h,typeId,rotated:fit.rotated,origW:iw,origH:ih};
+            this.placed.push(placed);
+            this.free.splice(fit.idx,1);
+            let right={x:fr.x+fit.w,y:fr.y,w:fr.w-fit.w,h:fit.h};
+            let top={x:fr.x,y:fr.y+fit.h,w:fr.w,h:fr.h-fit.h};
+            let rightB={x:fr.x+fit.w,y:fr.y,w:fr.w-fit.w,h:fr.h};
+            let topB={x:fr.x,y:fr.y+fit.h,w:fit.w,h:fr.h-fit.h};
+            let valid=r=>r.w>0&&r.h>0;
+            let a=[right,top].filter(valid), b=[topB,rightB].filter(valid);
+            let chosen=(a.reduce((s,r)=>s+r.w*r.h,0) >= b.reduce((s,r)=>s+r.w*r.h,0))?a:b;
+            this.free.push(...chosen);
+            this.merge();
+            return true;
+        }
+        merge(){
+            let merged=[];
+            for(let r of this.free){
+                let skip=false;
+                for(let m of merged) if(r.x>=m.x&&r.y>=m.y&&r.x+r.w<=m.x+m.w&&r.y+r.h<=m.y+m.h){skip=true;break;}
+                if(!skip) merged.push(r);
+            }
+            this.free=merged;
+        }
+        packAll(items){
+            let sorted=[...items];
+            if(this.strat==='width') sorted.sort((a,b)=>b.w-a.w);
+            else sorted.sort((a,b)=>b.w*b.h - a.w*a.h);
+            for(let it of sorted) for(let i=0;i<it.qty;i++) if(!this.packOne(it.w,it.h,it.typeId)) return false;
+            return true;
+        }
+        getFree(){return this.free;}
+    }
+    
+    // главный расчёт на несколько листов
+    function computeSheets(){
+        sheetW=Math.min(parseInt(sheetWInp.value)||2000,3000);
+        sheetH=parseInt(sheetHInp.value)||1000;
+        if(sheetW>3000){ alert("Ширина не может превышать 3000 мм (нож гильотины)"); sheetWInp.value=3000; sheetW=3000; }
+        strategy=strategySel.value;
+        allowRotate=allowRotateChk.checked;
+        let items=[];
+        let typeMap=new Map();
+        for(let p of parts){
+            if(p.w>0 && p.h>0 && p.q>0){
+                let key=p.w+'x'+p.h;
+                if(!typeMap.has(key)) typeMap.set(key,typeMap.size);
+                items.push({w:p.w,h:p.h,qty:p.q,typeId:typeMap.get(key)});
+            }
+        }
+        if(items.length===0){ alert("Добавьте детали"); return false; }
+        sheets=[];
+        let remaining=[...items];
+        while(remaining.length>0){
+            let packer=new Packer(sheetW,sheetH,strategy,allowRotate);
+            let success=packer.packAll(remaining);
+            if(!success && packer.placed.length===0){ alert("Некоторые детали не помещаются даже на один лист. Уменьшите размеры."); return false; }
+            let placedTypes=[];
+            for(let pl of packer.placed){
+                placedTypes.push({w:pl.origW,h:pl.origH,qty:1,typeId:pl.typeId});
+            }
+            // вычитаем из remaining
+            let newRemaining=[];
+            for(let it of remaining){
+                let need=it.qty;
+                for(let pt of placedTypes){
+                    if(pt.typeId===it.typeId && pt.w===it.w && pt.h===it.h && need>0){
+                        let take=Math.min(need,pt.qty);
+                        need-=take;
+                        pt.qty-=take;
+                    }
+                }
+                if(need>0) newRemaining.push({...it, qty:need});
+            }
+            sheets.push({placed:packer.placed, freeAreas:packer.getFree()});
+            remaining=newRemaining;
+            if(sheets.length>20) break; // защита
+        }
+        curSheetIdx=0;
+        if(sheets.length===0) sheets=[{placed:[],freeAreas:[{x:0,y:0,w:sheetW,h:sheetH}]}];
+        updateStatsAndCounter();
+        drawCanvas();
+        return true;
+    }
+    
+    // выравнивание по сетке (переупаковка текущего набора деталей на текущем листе)
+    function alignCurrentSheet(){
+        if(!sheets.length) return;
+        let allParts=[];
+        for(let pl of sheets[curSheetIdx].placed){
+            allParts.push({w:pl.origW, h:pl.origH, qty:1, typeId:pl.typeId});
+        }
+        if(allParts.length===0) return;
+        let packer=new Packer(sheetW,sheetH,strategy,allowRotate);
+        if(packer.packAll(allParts)){
+            sheets[curSheetIdx]={placed:packer.placed, freeAreas:packer.getFree()};
+            drawCanvas();
+            updateStatsAndCounter();
+        }else alert("Не удалось выровнять (ошибка упаковки)");
+    }
+    
+    function updateStatsAndCounter(){
+        if(!sheets.length) return;
+        let s=sheets[curSheetIdx];
+        let totalArea=0;
+        for(let p of s.placed) totalArea+=p.w*p.h;
+        let sheetArea=sheetW*sheetH;
+        let util=totalArea/sheetArea*100;
+        let waste=sheetArea-totalArea;
+        // кол-во резов: уникальные вертикальные и горизонтальные линии от края до края
+        let vertLines=new Set(), horLines=new Set();
+        for(let p of s.placed){
+            if(p.x>0) vertLines.add(p.x);
+            if(p.x+p.w<sheetW) vertLines.add(p.x+p.w);
+            if(p.y>0) horLines.add(p.y);
+            if(p.y+p.h<sheetH) horLines.add(p.y+p.h);
+        }
+        let cuts=vertLines.size+horLines.size;
+        let hint="";
+        if(strategy==='width') hint="📏 Приоритет ширины";
+        else if(strategy==='balance') hint="⚖️ Баланс";
+        else hint="🎯 Мин. отхода";
+        document.getElementById('statsPanel').innerHTML=`
+            <p>📐 КПД: ${util.toFixed(1)}% &nbsp; 🗑️ Отход: ${waste.toFixed(0)} мм² (${((waste/sheetArea)*100).toFixed(1)}%)</p>
+            <p>⚙️ Деталей: ${s.placed.length} &nbsp; ✂️ РЕЗОВ: ${cuts}</p>
+            <p>📌 ${hint} &nbsp; ${allowRotate?"↻ поворот разрешён":"↺ поворот запрещён"}</p>
+        `;
+        sheetCounterSpan.innerText=`Лист ${curSheetIdx+1} / ${sheets.length}`;
+    }
+    
+    // отрисовка с камерой
+    function drawCanvas(){
+        if(!canvas || !sheets.length) return;
+        let s=sheets[curSheetIdx];
+        let w=canvas.parentElement.clientWidth-20;
+        let baseScale=Math.min(w/sheetW, 500/sheetH, 1.2);
+        let finalScale=baseScale*scale;
+        canvas.width=sheetW*finalScale;
+        canvas.height=sheetH*finalScale;
+        canvas.style.width=`${canvas.width}px`;
+        canvas.style.height=`${canvas.height}px`;
+        ctx.clearRect(0,0,canvas.width,canvas.height);
+        ctx.save();
+        ctx.translate(offsetX*finalScale, offsetY*finalScale);
+        // фон
+        ctx.fillStyle="#FEFEF7";
+        ctx.fillRect(0,0,sheetW*finalScale,sheetH*finalScale);
+        ctx.strokeStyle="#2E4057";
+        ctx.strokeRect(0,0,sheetW*finalScale,sheetH*finalScale);
+        // свободные области
+        for(let a of s.freeAreas){
+            ctx.fillStyle="#E2E8F0";
+            ctx.fillRect(a.x*finalScale,a.y*finalScale,a.w*finalScale,a.h*finalScale);
+            ctx.strokeStyle="#9AAFB9";
+            ctx.strokeRect(a.x*finalScale,a.y*finalScale,a.w*finalScale,a.h*finalScale);
+        }
+        // детали
+        for(let i=0;i<s.placed.length;i++){
+            let d=s.placed[i];
+            let gray=170+(d.typeId%5)*12;
+            ctx.fillStyle=`rgb(${gray},${gray-15},${gray-25})`;
+            ctx.fillRect(d.x*finalScale,d.y*finalScale,d.w*finalScale,d.h*finalScale);
+            ctx.strokeStyle="#1F2F3E";
+            ctx.strokeRect(d.x*finalScale,d.y*finalScale,d.w*finalScale,d.h*finalScale);
+            ctx.font="bold 10px monospace";
+            ctx.fillStyle="#0F1A24";
+            let lbl=`${d.origW}×${d.origH}`;
+            let tw=ctx.measureText(lbl).width;
+            ctx.fillText(lbl, d.x*finalScale+d.w*finalScale/2-tw/2, d.y*finalScale+d.h*finalScale/2+3);
+            if(d.rotated){ ctx.fillStyle="#8B5A2B"; ctx.fillText("↻", d.x*finalScale+3, d.y*finalScale+12); }
+        }
+        // линии резов (пунктир)
+        ctx.beginPath();
+        ctx.setLineDash([4,4]);
+        ctx.strokeStyle="#4F6F8F";
+        let lines=new Set();
+        for(let d of s.placed){
+            let rx=(d.x+d.w)*finalScale, by=(d.y+d.h)*finalScale;
+            if(rx>0&&rx<canvas.width) lines.add(`v${rx}`);
+            if(by>0&&by<canvas.height) lines.add(`h${by}`);
+        }
+        for(let a of s.freeAreas){
+            let rx=(a.x+a.w)*finalScale, by=(a.y+a.h)*finalScale;
+            if(rx>0&&rx<canvas.width) lines.add(`v${rx}`);
+            if(by>0&&by<canvas.height) lines.add(`h${by}`);
+        }
+        for(let l of lines){
+            if(l[0]==='v'){ let x=parseFloat(l.slice(1)); ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,canvas.height); ctx.stroke(); }
+            else if(l[0]==='h'){ let y=parseFloat(l.slice(1)); ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(canvas.width,y); ctx.stroke(); }
+        }
+        ctx.setLineDash([]);
+        ctx.font="bold 9px monospace";
+        ctx.fillStyle="#1F3B4C";
+        ctx.fillText(`${sheetW} мм`, canvas.width/2-20, canvas.height-5);
+        ctx.save(); ctx.translate(8, canvas.height/2); ctx.rotate(-Math.PI/2); ctx.fillText(`${sheetH} мм`,0,0); ctx.restore();
+        ctx.restore();
+    }
+    
+    // ---- камера, зум, пан ----
+    function updateCamera(){ drawCanvas(); }
+    function handleWheel(e){
+        e.preventDefault();
+        let delta=e.deltaY>0?0.9:1.1;
+        let newScale=scale*delta;
+        if(newScale<0.2) newScale=0.2;
+        if(newScale>4) newScale=4;
+        scale=newScale;
+        drawCanvas();
+    }
+    function startPan(e){
+        isPanning=true;
+        let rect=canvas.getBoundingClientRect();
+        let clientX=e.clientX||(e.touches?e.touches[0].clientX:0);
+        let clientY=e.clientY||(e.touches?e.touches[0].clientY:0);
+        panStart.x=(clientX-rect.left)/canvas.width*sheetW - offsetX;
+        panStart.y=(clientY-rect.top)/canvas.height*sheetH - offsetY;
+        canvas.style.cursor='grabbing';
+    }
+    function onPan(e){
+        if(!isPanning) return;
+        let rect=canvas.getBoundingClientRect();
+        let clientX=e.clientX||(e.touches?e.touches[0].clientX:0);
+        let clientY=e.clientY||(e.touches?e.touches[0].clientY:0);
+        let newX=(clientX-rect.left)/canvas.width*sheetW - panStart.x;
+        let newY=(clientY-rect.top)/canvas.height*sheetH - panStart.y;
+        offsetX=newX; offsetY=newY;
+        drawCanvas();
+    }
+    function endPan(){ isPanning=false; canvas.style.cursor='grab'; }
+    function resetView(){ scale=1; offsetX=0; offsetY=0; drawCanvas(); }
+    
+    // подсказки при наведении
+    function getPartUnderMouse(e){
+        let rect=canvas.getBoundingClientRect();
+        let mouseX=(e.clientX-rect.left)/canvas.width*sheetW;
+        let mouseY=(e.clientY-rect.top)/canvas.height*sheetH;
+        let s=sheets[curSheetIdx];
+        for(let p of s.placed){
+            if(mouseX>=p.x && mouseX<=p.x+p.w && mouseY>=p.y && mouseY<=p.y+p.h) return p;
+        }
+        return null;
+    }
+    function onMouseMoveTooltip(e){
+        let part=getPartUnderMouse(e);
+        if(part){
+            tooltipDiv.style.display='block';
+            tooltipDiv.innerHTML=`${part.origW}×${part.origH} мм  (${part.x.toFixed(0)};${part.y.toFixed(0)})`;
+            tooltipDiv.style.left=(e.clientX+12)+'px';
+            tooltipDiv.style.top=(e.clientY-20)+'px';
+        }else{ tooltipDiv.style.display='none'; }
+    }
+    
+    // drag-drop деталей (простой)
+    let dragPartIdx=null, dragStartPos=null, dragOrig={x:0,y:0};
+    function onCanvasMouseDown(e){
+        let rect=canvas.getBoundingClientRect();
+        let mouseX=(e.clientX-rect.left)/canvas.width*sheetW;
+        let mouseY=(e.clientY-rect.top)/canvas.height*sheetH;
+        let s=sheets[curSheetIdx];
+        for(let i=0;i<s.placed.length;i++){
+            let p=s.placed[i];
+            if(mouseX>=p.x && mouseX<=p.x+p.w && mouseY>=p.y && mouseY<=p.y+p.h){
+                dragPartIdx=i; dragStartPos={x:mouseX,y:mouseY}; dragOrig={x:p.x,y:p.y};
+                e.preventDefault();
+                break;
+            }
+        }
+    }
+    function onCanvasMouseMove(e){
+        if(dragPartIdx===null) return;
+        let rect=canvas.getBoundingClientRect();
+        let mouseX=(e.clientX-rect.left)/canvas.width*sheetW;
+        let mouseY=(e.clientY-rect.top)/canvas.height*sheetH;
+        let dx=mouseX-dragStartPos.x, dy=mouseY-dragStartPos.y;
+        let part=sheets[curSheetIdx].placed[dragPartIdx];
+        let newX=Math.min(Math.max(0,dragOrig.x+dx), sheetW-part.w);
+        let newY=Math.min(Math.max(0,dragOrig.y+dy), sheetH-part.h);
+        drawCanvas();
+        ctx.save(); ctx.globalAlpha=0.5; ctx.fillStyle="#aaa";
+        ctx.fillRect(newX*(canvas.width/sheetW), newY*(canvas.height/sheetH), part.w*(canvas.width/sheetW), part.h*(canvas.height/sheetH));
+        ctx.restore();
+    }
+    function onCanvasMouseUp(e){
+        if(dragPartIdx!==null){
+            let rect=canvas.getBoundingClientRect();
+            let mouseX=(e.clientX-rect.left)/canvas.width*sheetW;
+            let mouseY=(e.clientY-rect.top)/canvas.height*sheetH;
+            let dx=mouseX-dragStartPos.x, dy=mouseY-dragStartPos.y;
+            let part=sheets[curSheetIdx].placed[dragPartIdx];
+            let newX=Math.min(Math.max(0,dragOrig.x+dx), sheetW-part.w);
+            let newY=Math.min(Math.max(0,dragOrig.y+dy), sheetH-part.h);
+            sheets[curSheetIdx].placed[dragPartIdx].x=newX;
+            sheets[curSheetIdx].placed[dragPartIdx].y=newY;
+            // перестроим freeAreas грубо (заново)
+            let occ=sheets[curSheetIdx].placed.map(p=>({x:p.x,y:p.y,w:p.w,h:p.h}));
+            let free=[{x:0,y:0,w:sheetW,h:sheetH}];
+            for(let o of occ){
+                let newFree=[];
+                for(let fr of free){
+                    if(o.x<fr.x+fr.w && o.x+o.w>fr.x && o.y<fr.y+fr.h && o.y+o.h>fr.y){
+                        let left={x:fr.x,y:fr.y,w:o.x-fr.x,h:fr.h};
+                        let right={x:o.x+o.w,y:fr.y,w:fr.x+fr.w-(o.x+o.w),h:fr.h};
+                        let top={x:o.x,y:fr.y,w:o.w,h:o.y-fr.y};
+                        let bottom={x:o.x,y:o.y+o.h,w:o.w,h:fr.y+fr.h-(o.y+o.h)};
+                        newFree.push(...[left,right,top,bottom].filter(r=>r.w>0&&r.h>0));
+                    }else newFree.push(fr);
+                }
+                free=newFree;
+            }
+            sheets[curSheetIdx].freeAreas=free.filter(r=>r.w>0&&r.h>0);
+            drawCanvas();
+            updateStatsAndCounter();
+        }
+        dragPartIdx=null;
+    }
+    
+    function savePNG(){
+        let link=document.createElement('a');
+        link.download=`guillotine_лист${curSheetIdx+1}.png`;
+        link.href=canvas.toDataURL();
+        link.click();
+    }
+    function printSheet(){
+        let win=window.open('','_blank');
+        win.document.write(`<html><head><title>Раскрой лист ${curSheetIdx+1}</title><style>body{text-align:center;margin:20px}img{max-width:100%;border:1px solid #000}</style></head><body><img src="${canvas.toDataURL()}"/><p>${sheetW}×${sheetH} мм | КПД: ${document.getElementById('statsPanel').innerText}</p></body></html>`);
+        win.document.close(); win.print();
+    }
+    
+    function nextSheetF(){ if(curSheetIdx+1<sheets.length){ curSheetIdx++; drawCanvas(); updateStatsAndCounter(); } }
+    function prevSheetF(){ if(curSheetIdx>0){ curSheetIdx--; drawCanvas(); updateStatsAndCounter(); } }
+    function resetExample(){ parts=[{w:500,h:300,q:4},{w:400,h:250,q:3},{w:600,h:200,q:2},{w:300,h:300,q:2}]; sheetWInp.value=2000; sheetHInp.value=1000; strategySel.value="width"; allowRotateChk.checked=true; renderPartsTable(); computeSheets(); }
+    
+    function init(){
+        canvas=document.getElementById('cutCanvas'); ctx=canvas.getContext('2d'); container=document.getElementById('canvasContainer');
+        tooltipDiv=document.getElementById('tooltip');
+        renderPartsTable();
+        canvas.addEventListener('wheel',handleWheel,{passive:false});
+        canvas.addEventListener('mousedown',(e)=>{ if(e.button===0 && !dragPartIdx) startPan(e); else onCanvasMouseDown(e); });
+        window.addEventListener('mousemove',(e)=>{ if(isPanning) onPan(e); else if(dragPartIdx!==null) onCanvasMouseMove(e); else onMouseMoveTooltip(e); });
+        window.addEventListener('mouseup',()=>{ if(isPanning) endPan(); if(dragPartIdx!==null) onCanvasMouseUp(event); });
+        canvas.addEventListener('touchstart',(e)=>{ e.preventDefault(); let t=e.touches[0]; let fake={clientX:t.clientX,clientY:t.clientY,button:0}; startPan(fake); });
+        window.addEventListener('touchmove',(e)=>{ if(isPanning){ e.preventDefault(); let t=e.touches[0]; onPan({clientX:t.clientX,clientY:t.clientY}); } });
+        window.addEventListener('touchend',()=>endPan());
+        calcBtn.onclick=()=>computeSheets();
+        resetBtn.onclick=resetExample;
+        alignBtn.onclick=()=>{ if(sheets.length) alignCurrentSheet(); };
+        addPartBtn.onclick=()=>{ parts.push({w:300,h:200,q:1}); renderPartsTable(); };
+        prevSheet.onclick=prevSheetF; nextSheet.onclick=nextSheetF;
+        savePng.onclick=savePNG; printBtnEl.onclick=printSheet;
+        zoomIn.onclick=()=>{ scale=Math.min(4,scale*1.2); drawCanvas(); };
+        zoomOut.onclick=()=>{ scale=Math.max(0.2,scale/1.2); drawCanvas(); };
+        zoomReset.onclick=resetView;
+        themeToggle.onclick=()=>{ document.body.classList.toggle('dark'); };
+        computeSheets();
+    }
+    init();
+</script>
+</body>
+</html>
